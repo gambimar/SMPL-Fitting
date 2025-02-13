@@ -1,6 +1,5 @@
 
 
-from termcolor import colored
 import yaml
 from datetime import datetime
 import os
@@ -9,7 +8,6 @@ from glob import glob
 import zmq
 import plotly
 import json
-from dash_app import terminate_dash_app_subprocess
 import landmarks as landmarks_module
 import json
 import gzip
@@ -287,10 +285,10 @@ def print_params(pose: torch.tensor,
                  beta:torch.tensor,
                  trans:torch.tensor,
                  scale:torch.tensor):
-    print(colored(f"\tpose:","yellow"), f"{pose.tolist()}")
-    print(colored(f"\tbeta:","yellow"), f"{beta.tolist()}")
-    print(colored(f"\ttrans:","yellow"), f"{trans.tolist()}")
-    print(colored(f"\tscale:","yellow"), f"{scale.tolist()}")
+    print((f"\tpose:","yellow"), f"{pose.tolist()}")
+    print((f"\tbeta:","yellow"), f"{beta.tolist()}")
+    print((f"\ttrans:","yellow"), f"{trans.tolist()}")
+    print((f"\tscale:","yellow"), f"{scale.tolist()}")
 
 def print_losses(data_loss:torch.tensor,
                  landmark_loss:torch.tensor,
@@ -298,15 +296,15 @@ def print_losses(data_loss:torch.tensor,
                  beta_loss:torch.tensor,
                  loss_names:str = "losses"):
     
-    print_str = colored(f"\t{loss_names}:", "yellow")
-    print_str += colored(f" DATA:","blue")
-    print_str += colored(f"{data_loss.item():.6f}","green")
-    print_str += colored(f", LANDMARK:","blue")
-    print_str += colored(f"{landmark_loss.item():.6f}","green")
-    print_str += colored(f", PRIOR:","blue")
-    print_str += colored(f"{prior_loss.item():.6f}","green")
-    print_str += colored(f", BETA:","blue")
-    print_str += colored(f"{beta_loss.item():.6f}","green")
+    print_str = (f"\t{loss_names}:", "yellow")
+    print_str += (f" DATA:","blue")
+    print_str += (f"{data_loss.item():.6f}","green")
+    print_str += (f", LANDMARK:","blue")
+    print_str += (f"{landmark_loss.item():.6f}","green")
+    print_str += (f", PRIOR:","blue")
+    print_str += (f"{prior_loss.item():.6f}","green")
+    print_str += (f", BETA:","blue")
+    print_str += (f"{beta_loss.item():.6f}","green")
     print(print_str)
 
 def print_loss_weights(data_loss:torch.tensor,
@@ -314,15 +312,15 @@ def print_loss_weights(data_loss:torch.tensor,
                         prior_loss:torch.tensor,
                         beta_loss:torch.tensor,
                         loss_names:str = "loss weights:"):
-    print_str = colored(f"\t{loss_names}:", "yellow")
-    print_str += colored(f" DATA:","blue")
-    print_str += colored(f"{data_loss:.4f}","green")
-    print_str += colored(f", LANDMARK:","blue")
-    print_str += colored(f"{landmark_loss:.4f}","green")
-    print_str += colored(f", PRIOR:","blue")
-    print_str += colored(f"{prior_loss:.4f}","green")
-    print_str += colored(f", BETA:","blue")
-    print_str += colored(f"{beta_loss:.4f}","green")
+    print_str = (f"\t{loss_names}:", "yellow")
+    print_str += (f" DATA:","blue")
+    print_str += (f"{data_loss:.4f}","green")
+    print_str += (f", LANDMARK:","blue")
+    print_str += (f"{landmark_loss:.4f}","green")
+    print_str += (f", PRIOR:","blue")
+    print_str += (f"{prior_loss:.4f}","green")
+    print_str += (f", BETA:","blue")
+    print_str += (f"{beta_loss:.4f}","green")
     print(print_str)
 
 
@@ -373,7 +371,7 @@ def check_scan_prequisites_fit_bm(input_dict:dict, verbose=True):
     # check if input_dict has all the required keys
     if not set(expected_keys).issubset(set(input_keys)):
         if verbose:
-            print(colored(msg,"red"))
+            print((msg,"red"))
         return False
 
     
@@ -381,7 +379,7 @@ def check_scan_prequisites_fit_bm(input_dict:dict, verbose=True):
     # that means that some of the data is missing
     if any(input_dict[key] is None for key in expected_keys):
         if verbose:
-            print(colored(msg,"red"))
+            print((msg,"red"))
         return False
     
     return True
@@ -409,14 +407,14 @@ def check_scan_prequisites_fit_verts(input_dict:dict, cfg:dict, verbose=True):
     # check if input_dict has all the required keys
     if not set(expected_keys).issubset(set(input_keys)):
         if verbose:
-            print(colored(msg,"red"))
+            print((msg,"red"))
         return False
 
     
     # check if input_dict has all the data required to fit the body model
     if any(input_dict[key] is None for key in expected_keys):
         if verbose:
-            print(colored(msg,"red"))
+            print((msg,"red"))
         return False
     
     return True
@@ -728,6 +726,13 @@ def load_scan(scan_path, return_vertex_colors=False):
     supported_extensions = [".ply",".ply.gz", ".obj"]
 
     if ext in ["ply", "obj"]:
+        if ext == "obj":
+            import pandas as pd
+            mesh = pd.read_csv(scan_path, sep=' ', header=None, comment='#')
+            mesh = mesh[mesh[0] == 'v']
+            scan_vertices = mesh.iloc[:, 1:].values.astype(np.float32)
+            print(scan_vertices.shape)
+            return scan_vertices, None
         scan = o3d.io.read_triangle_mesh(scan_path)
         scan_vertices = np.asarray(scan.vertices)
         scan_faces = np.asarray(scan.triangles)
@@ -891,7 +896,11 @@ def initialize_A(N, random_init=True):
         # else:
         #     A = torch.cat([torch.diag(torch.ones(3)), 
         #                     torch.zeros(3,1)],dim=1).unsqueeze(0).expand(N,3,4)
-        return torch.tensor(A, requires_grad=True, device="cuda:0") #.requires_grad_(True)
+        A = A.numpy()
+        if torch.cuda.is_available():
+            return torch.tensor(A, requires_grad=True, device="cuda:0")
+        else:
+            return torch.tensor(A, requires_grad=True)
         #return A.requires_grad_(True).cuda()
         # return A.clone().requires_grad_(True).cuda()
 

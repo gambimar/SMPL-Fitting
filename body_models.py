@@ -21,7 +21,6 @@ class SMPLBodyModel():
     """
     
     def __init__(self, cfg: dict):
-        
         self.all_landmark_indices = SMPL_INDEX_LANDMARKS
         self.gender = cfg["body_model_gender"].upper() if "body_model_gender" in cfg else "NEUTRAL"
         body_model_path = os.path.join(cfg["body_models_path"], 
@@ -116,7 +115,6 @@ class BodyModel():
 
         possible_model_types = ["smpl"] #["smpl", "smplx"]
         model_type = cfg["body_model"].lower()
-
         if model_type == "smpl":
             return SMPLBodyModel(cfg)
         # elif model_type == "smplx":

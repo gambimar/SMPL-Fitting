@@ -1,7 +1,7 @@
 
 
 import torch
-
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
 class OptimizationSMPL(torch.nn.Module):
     """
@@ -10,28 +10,28 @@ class OptimizationSMPL(torch.nn.Module):
     def __init__(self, cfg: dict):
         super(OptimizationSMPL, self).__init__()
 
-        # self.pose = torch.nn.Parameter(torch.zeros(1, 72).cuda())
-        # self.beta = torch.nn.Parameter((torch.zeros(1, 10).cuda()))
-        # self.trans = torch.nn.Parameter(torch.zeros(1, 3).cuda())
-        # self.scale = torch.nn.Parameter(torch.ones(1).cuda()*1)
+        # self.pose = torch.nn.Parameter(torch.zeros(1, 72).to(DEVICE))
+        # self.beta = torch.nn.Parameter((torch.zeros(1, 10).to(DEVICE)))
+        # self.trans = torch.nn.Parameter(torch.zeros(1, 3).to(DEVICE))
+        # self.scale = torch.nn.Parameter(torch.ones(1).to(DEVICE)*1)
 
-        pose = torch.zeros(1, 72).cuda()
-        beta = torch.zeros(1, 10).cuda()
-        trans = torch.zeros(1, 3).cuda()
-        scale = torch.ones(1).cuda()*1
+        pose = torch.zeros(1, 72).to(DEVICE)
+        beta = torch.zeros(1, 10).to(DEVICE)
+        trans = torch.zeros(1, 3).to(DEVICE)
+        scale = torch.ones(1).to(DEVICE)*1
 
         if "init_params" in cfg:
             init_params = cfg["init_params"]
             if "pose" in init_params:
-                pose = cfg["init_params"]["pose"].cuda()
+                pose = cfg["init_params"]["pose"].to(DEVICE)
             if "shape" in init_params:
-                beta = cfg["init_params"]["shape"].cuda()
+                beta = cfg["init_params"]["shape"].to(DEVICE)
 
             if "trans" in init_params:
-                trans = cfg["init_params"]["trans"].cuda()
+                trans = cfg["init_params"]["trans"].to(DEVICE)
 
             if "scale" in init_params:
-                scale = cfg["init_params"]["scale"].cuda()
+                scale = cfg["init_params"]["scale"].to(DEVICE)
         
 
         if "refine_params" in cfg:

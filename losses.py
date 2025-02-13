@@ -9,8 +9,13 @@ from typing import List
 
 import sys
 script_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(script_path,"pyTorchChamferDistance"))
-from chamfer_distance import ChamferDistance
+
+if torch.cuda.is_available():
+    sys.path.append(os.path.join(script_path,"pyTorchChamferDistance"))
+    from chamfer_distance import ChamferDistance
+else: #We create a (much slower) CPU version of the chamfer distance so that we can run the code on every PC
+    sys.path.append(os.path.join(script_path,"pyTorchCpuChamferDistance"))
+    from chamfer_distance import ChamferDistance
 
 # from utils import get_normals
 
@@ -183,10 +188,15 @@ class Losses(nn.Module):
             self.current_loss_weights = self.loss_weights[iteration]
 
     def forward(self, **kwargs):
-
-
-        loss = {loss_name: self.current_loss_weights[loss_name] * loss_fn(**kwargs) 
-                    for loss_name, loss_fn in self.loss_fns.items()}
+        #loss = {loss_name: self.current_loss_weights[loss_name] * loss_fn(**kwargs) 
+        #            for loss_name, loss_fn in self.loss_fns.items()}
+        loss = {}
+        for loss_name, loss_fn in self.loss_fns.items(): #Smooth must be first
+            if loss_name == "data":
+                kwargs['template_vertices'] = kwargs['template_vertices'][:,kwargs['mask']]
+                kwargs['A'] = kwargs['A'][kwargs['mask'],:,:]
+                kwargs['template_normals'] = kwargs['template_normals'][kwargs['mask'],:]
+            loss[loss_name] = self.current_loss_weights[loss_name] * loss_fn(**kwargs)
         self.track_loss(loss)
         loss = sum(loss.values())
         

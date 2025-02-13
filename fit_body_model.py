@@ -3,7 +3,6 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import os
-from termcolor import colored
 import argparse
 
 
@@ -23,8 +22,8 @@ from utils import (check_scan_prequisites_fit_bm, cleanup,
 from body_models import BodyModel
 from body_parameters import BodyParameters
 from datasets import FAUST, CAESAR
-from dash_app import run_dash_app_as_subprocess
-
+#from dash_app import run_dash_app_as_subprocess
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def fit_body_model(input_dict: dict, cfg: dict):
@@ -40,7 +39,6 @@ def fit_body_model(input_dict: dict, cfg: dict):
                         values as list [x,y,z] or np.ndarray (3,)
     :param: cfg (dict): config file defined in configs/config.yaml
     """
-
     DEFAULT_DTYPE = cfg['default_dtype']
     VERBOSE = cfg['verbose']
     VISUALIZE = cfg['visualize']
@@ -60,22 +58,24 @@ def fit_body_model(input_dict: dict, cfg: dict):
     input_index = input_dict["scan_index"]
 
     # process inputs
-    input_vertices = torch.from_numpy(input_vertices).type(DEFAULT_DTYPE).unsqueeze(0).cuda()
+    input_vertices = torch.from_numpy(input_vertices).type(DEFAULT_DTYPE).unsqueeze(0).to(DEVICE)
     input_faces = torch.from_numpy(input_faces).type(DEFAULT_DTYPE) if \
                             (not isinstance(input_faces,type(None))) else None
 
     landmarks_order = sorted(list(input_landmarks.keys()))
     input_landmarks = np.array([input_landmarks[k] for k in landmarks_order])
     input_landmarks = torch.from_numpy(input_landmarks)
-    input_landmarks = input_landmarks.type(DEFAULT_DTYPE).cuda()
+    input_landmarks = input_landmarks.type(DEFAULT_DTYPE).to(DEVICE)
 
     # setup body model
     body_model = BodyModel(cfg)
-    body_model.cuda()
-    body_model_params = BodyParameters(cfg).cuda()
+    if torch.cuda.is_available():
+        body_model.cuda()
+    body_model_params = BodyParameters(cfg).to(DEVICE)
     body_model_landmark_inds = body_model.landmark_indices(landmarks_order)
     print(f"Using {len(input_landmarks)}/{len(body_model.all_landmark_indices)} landmarks.")
 
+    print('Fitting body model to scan:', input_name)
 
     # configure optimization
     ITERATIONS = cfg['iterations']
@@ -83,29 +83,27 @@ def fit_body_model(input_dict: dict, cfg: dict):
     START_LR_DECAY = cfg['start_lr_decay_iteration']
     loss_weights = cfg['loss_weights']
     loss_tracker = LossTracker(loss_weights[0].keys())
-
+    
     body_optimizer = torch.optim.Adam(body_model_params.parameters(), lr=LR)
     chamfer_distance = ChamferDistance()
     prior = MaxMixturePrior(prior_folder=cfg["prior_path"], num_gaussians=8)
-    prior = prior.cuda()
-
-
+    prior = prior.to(DEVICE)
 
     if VISUALIZE:
         fig = set_init_plot(input_vertices[0].detach().cpu(), 
                             body_model.verts_t_pose.detach().cpu(), 
                             title=f"Fitting ({input_name}) - initial setup")
         send_to_socket(fig, socket, SOCKET_TYPE)
-
+    print(f"Starting fitting for {input_name} -----------------")
 
 
     iterator = tqdm(range(ITERATIONS))
     for i in iterator:
 
-        if VERBOSE: print(colored(f"iteration {i}","red"))
+        if VERBOSE: print(f"iteration {i}","red")
 
         if i in loss_weights.keys():
-            if VERBOSE: print(colored(f"\tChanging loss weights","red"))
+            if VERBOSE: print(f"\tChanging loss weights","red")
             data_loss_weight = loss_weights[i]['data']
             landmark_loss_weight = loss_weights[i]['landmark']
             prior_loss_weight = loss_weights[i]['prior']
@@ -324,13 +322,6 @@ if __name__ == "__main__":
     # save configs into results dir
     save_configs(cfg)
 
-    # create web visualization
-    if cfg["visualize"]:
-        cfg["socket"] = setup_socket(cfg["socket_type"])
-        dash_app_process, dash_app_pid = run_dash_app_as_subprocess(cfg['socket_port'])
-        print(f"Fitting visualization on http://localhost:{cfg['socket_port']}/")
-
-
     # wrapped in a try-except to make sure that the 
     # web visualization socket is closed properly
     try:
@@ -339,4 +330,4 @@ if __name__ == "__main__":
         print(e)
 
     if cfg["visualize"]:
-        cleanup(cfg["visualize"], cfg["socket"], dash_app_process, dash_app_pid)
+        cleanup(cfg["visualize"], cfg["socket"])

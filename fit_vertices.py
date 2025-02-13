@@ -3,11 +3,9 @@ import argparse
 import torch
 import numpy as np
 import os
-from termcolor import colored
 from tqdm import tqdm
 
 from body_models import BodyModel
-from dash_app import run_dash_app_as_subprocess
 from utils import (check_scan_prequisites_fit_verts, cleanup, 
                    create_results_directory, exit_fitting_vertices, 
                    get_already_fitted_scan_names, 
@@ -21,6 +19,8 @@ from utils import (check_scan_prequisites_fit_verts, cleanup,
 import losses
 from visualization import set_init_plot, viz_error_curves, viz_iteration, viz_final_fit
 from datasets import CAESAR, FAUST
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def fit_vertices(input_dict: dict, cfg: dict):
@@ -56,14 +56,14 @@ def fit_vertices(input_dict: dict, cfg: dict):
     USE_LANDMARKS = False if isinstance(scan_landmarks,type(None)) else True
     scan_index = input_dict.get("scan_index", 0)
     
-    scan_vertices = torch.from_numpy(scan_vertices).type(DEFAULT_DTYPE).unsqueeze(0).cuda()
+    scan_vertices = torch.from_numpy(scan_vertices).type(DEFAULT_DTYPE).unsqueeze(0).to(DEVICE)
     if USE_LANDMARKS:
         landmarks_order = sorted(list(scan_landmarks.keys()))
         scan_landmarks = np.array([scan_landmarks[k] for k in landmarks_order])
         scan_landmarks = torch.from_numpy(scan_landmarks)
-        scan_landmarks = scan_landmarks.type(DEFAULT_DTYPE).cuda()
+        scan_landmarks = scan_landmarks.type(DEFAULT_DTYPE).to(DEVICE)
     scan_normals = get_normals(scan_vertices[0].detach().cpu())
-    scan_normals = scan_normals.cuda()
+    scan_normals = scan_normals.to(DEVICE)
 
 
     # set template data
@@ -72,12 +72,12 @@ def fit_vertices(input_dict: dict, cfg: dict):
         fit_path = os.path.join(cfg["start_from_previous_results"], 
                                 f"{scan_name}.npz")
         if not os.path.exists(fit_path):
-            print(colored(f"No previous fit found for scan {scan_name}. Skipping example.","red"))
+            print((f"No previous fit found for scan {scan_name}. Skipping example.","red"))
             return
         template_dict = np.load(fit_path)
         
         template_vertices = template_dict["vertices"]
-        template_vertices = torch.from_numpy(template_vertices).type(DEFAULT_DTYPE).unsqueeze(0).cuda()
+        template_vertices = torch.from_numpy(template_vertices).type(DEFAULT_DTYPE).unsqueeze(0).to(DEVICE)
         
         body_model = BodyModel(cfg)
     else:
@@ -85,15 +85,29 @@ def fit_vertices(input_dict: dict, cfg: dict):
             cfg["start_from_body_model"] = "smpl"
         body_model = BodyModel(cfg)
         
-        template_vertices = body_model.verts_t_pose.unsqueeze(0).cuda() # (1,N,3)
+        template_vertices = body_model.verts_t_pose.unsqueeze(0).to(DEVICE) # (1,N,3)
 
     if USE_LANDMARKS:
         template_landmark_inds = body_model.landmark_indices(landmarks_order)
         print(f"Using {len(scan_landmarks)}/{len(body_model.all_landmark_indices)} landmarks.")
     
+    # Ignore vertices that are not part of the body scan
+    ignore_segments = cfg["ignore_segments"]
+    ignore_verts = []
+    if ignore_segments or type(ignore_segments) is list:
+        import json
+        with open("smpl_vert_segmentation.json", 'r') as f:
+            vert_segmentation = json.load(f)
+        for key in ignore_segments:
+            ignore_verts.extend(vert_segmentation[key])
+        mask = torch.ones(6890, dtype=torch.bool)
+        mask[ignore_verts] = False
+        print(sum(mask), 'vertices are used for fitting. Warning: The total number of vertices is hardcoded: 6890.')   
+    else:
+        mask = torch.ones(6890, dtype=torch.bool)
 
     template_normals = get_normals(template_vertices[0].detach().cpu())
-    template_normals = template_normals.cuda()
+    template_normals = template_normals.to(DEVICE)
     template_vertices_N = template_vertices.shape[1]
 
     # visualize starting fitting point
@@ -110,20 +124,19 @@ def fit_vertices(input_dict: dict, cfg: dict):
     STOP_AT_LOSS_VALUE = float(cfg["stop_at_loss_value"])
     STOP_AT_LOSS_DIFFERENCE = float(cfg["stop_at_loss_difference"])
     A = initialize_A(template_vertices_N, cfg["random_init_A"])
-    A = A.cuda()
+    A = A.to(DEVICE)
     optimizer = torch.optim.LBFGS([A], lr=LR)
     loss_func = losses.Losses(cfg, cfg["loss_weights"])
     transform_points = rotate_points_homo
 
-    loss_current = torch.Tensor([10]).cuda()
-    loss_previous = torch.Tensor([100]).cuda()
+    loss_current = torch.Tensor([10]).to(DEVICE)
+    loss_previous = torch.Tensor([100]).to(DEVICE)
     global closure_call
     closure_call = 0
     closure_calls = []
 
     iterator = tqdm(range(MAX_ITERATIONS))
     for iteration in iterator:
-
         if exit_fitting_vertices(loss_current, loss_previous, 
                                 STOP_AT_LOSS_VALUE,STOP_AT_LOSS_DIFFERENCE):
             print("Fitting reached loss convergence.")
@@ -134,14 +147,14 @@ def fit_vertices(input_dict: dict, cfg: dict):
             output = transform_points(template_vertices.squeeze(), A)
             output_landmarks = output[template_landmark_inds,:]
             output_normals = update_normals(template_normals, A)
-
             loss_dict = dict(scan_vertices=scan_vertices,
                              template_vertices = output.unsqueeze(0),
                              A=A,
                              scan_landmarks=scan_landmarks,
                              template_landmarks=output_landmarks,
                              scan_normals=scan_normals,
-                             template_normals=output_normals
+                             template_normals=output_normals,
+                             mask=mask
                              )
             loss = loss_func(**loss_dict)
             
@@ -149,11 +162,13 @@ def fit_vertices(input_dict: dict, cfg: dict):
             closure_call = closure_call + 1
             loss.backward()
             return loss
-                
+
         loss_func.update_loss_weights(iteration)
 
         loss_previous = loss_current
+
         optimizer.step(closure)
+
         output = transform_points(template_vertices.squeeze(), A)
         loss_current = closure()
 

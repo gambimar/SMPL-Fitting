@@ -6,7 +6,10 @@ fit_body_model_optimization:
   lr: 0.1
   start_lr_decay_iteration:  450
   body_model: smpl
-  use_landmarks: SMPL_INDEX_LANDMARKS # either "All", name of dict from landmarks.py or list of landmark names ["Lt. 10th Rib", "Lt. Dactylion",..]
+  use_landmarks: ["Sellion", "Suprasternale"] #SMPL_INDEX_LANDMARKS # either "All", name of dict from landmarks.py or list of landmark names ["Lt. 10th Rib", "Lt. Dactylion",..]
+  ignore_segments: ["leftArm","leftHandIndex1","leftForeArm","leftHand","rightArm","rightHandIndex1","rightForeArm","rightHand","head","neck"]
+  #ignore_segments: ["leftArm","leftHandIndex1","leftForeArm","leftHand","rightArm","rightHandIndex1","rightForeArm","rightHand"]
+  volume_target: False # 56.03 # volume of SMPL model, used for volume loss. default: False
 
 fit_vertices_optimization:
   loss_weight_option: default_option
@@ -16,11 +19,12 @@ fit_vertices_optimization:
   use_landmarks: SMPL_INDEX_LANDMARKS # either "All", name of dict from landmarks.py or list of landmark names ["Lt. 10th Rib", "Lt. Dactylion",..]
   seed: 0
   random_init_A: True
-  use_losses:  ["data","smooth","landmark"]
+  use_losses:  ["smooth","data","landmark"]
   lr: 1
   normal_threshold_angle: null 
   normal_threshold_distance: null 
   partial_data_threshold: null
+  ignore_segments: ["leftArm","leftHandIndex1","leftForeArm","leftHand","rightArm","rightHandIndex1","rightForeArm","rightHand","head","neck"]
 
 refine_bm_fitting:
   loss_weight_option: fourDhumanoutfit # check options in loss_weight_configs.yaml
@@ -42,16 +46,16 @@ general:
   experiment_name: "Fitting" 
 
 paths:
-  body_models_path: /SMPL-Fitting/data/body_models
-  prior_path: /SMPL-Fitting/data/prior
-  save_path: /SMPL-Fitting/results
+  body_models_path: data/body_models
+  prior_path: data/prior
+  save_path: results
 
 
 web_visualization:
   socket_type: zmq
   socket_port: 8055 # visualize on localhost:8050
   error_curves_logscale: False
-  visualize: True 
+  visualize: False 
   visualize_steps: range(0, 500, 50)+[10,30,499]
 
 
