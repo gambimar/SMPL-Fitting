@@ -46,7 +46,8 @@ def fit_body_model(input_dict: dict, cfg: dict):
     VISUALIZE_LOGSCALE = cfg["error_curves_logscale"]
     SAVE_PATH = cfg['save_path']
     SOCKET_TYPE = cfg["socket_type"]
-    
+    VOLUME_TARGET = cfg["volume_target"]
+
     if VISUALIZE:
         socket = cfg["socket"]
 
@@ -89,6 +90,26 @@ def fit_body_model(input_dict: dict, cfg: dict):
     prior = MaxMixturePrior(prior_folder=cfg["prior_path"], num_gaussians=8)
     prior = prior.to(DEVICE)
 
+    # Ignore vertices that are not part of the body scan
+    ignore_segments = cfg["ignore_segments"]
+    ignore_verts = []
+    if ignore_segments or type(ignore_segments) is list:
+        import json
+        with open("/home/rzlin/ri94mihu/phd/WP4/SMPL-Fitting/smpl_vert_segmentation.json", 'r') as f:
+            vert_segmentation = json.load(f)
+        for key in ignore_segments:
+            ignore_verts.extend(vert_segmentation[key])
+        mask = torch.ones(6890, dtype=torch.bool)
+        mask[ignore_verts] = False
+        print(sum(mask), 'vertices are used for fitting. Warning: The total number of vertices is hardcoded: 6890.')   
+    else:
+        mask = torch.ones(6890, dtype=torch.bool)
+
+    if VOLUME_TARGET:
+        loss_tracker = LossTracker(list(loss_weights[0].keys())+ ['volume'])
+        import volume_utils
+        volume_getter = volume_utils.VolumeGetter(ignore_verts)
+
     if VISUALIZE:
         fig = set_init_plot(input_vertices[0].detach().cpu(), 
                             body_model.verts_t_pose.detach().cpu(), 
@@ -122,7 +143,7 @@ def fit_body_model(input_dict: dict, cfg: dict):
                                                    scale)
 
         # compute losses
-        dist1, dist2, _ , _ = chamfer_distance(body_model_verts.unsqueeze(0), input_vertices)
+        dist1, dist2, _ , _ = chamfer_distance(body_model_verts[mask].unsqueeze(0), input_vertices)
         data_loss = (torch.mean(dist1)) + (torch.mean(dist2))
         data_loss_weighted = data_loss_weight * data_loss
         landmark_loss = summed_L2(body_model_verts[body_model_landmark_inds,:], input_landmarks)
@@ -133,7 +154,19 @@ def fit_body_model(input_dict: dict, cfg: dict):
         beta_loss_weighted = beta_loss_weight * beta_loss
         loss = data_loss_weighted + landmark_loss_weighted + prior_loss_weighted + beta_loss_weighted
 
-        loss_tracker.update({"data": data_loss_weighted,
+        if VOLUME_TARGET and (i>300):
+            current_volume = volume_getter.get_volume(body_model_verts)
+            volume_loss = (current_volume - VOLUME_TARGET)**2
+            loss += volume_loss * 100
+            loss_tracker.update({"data": data_loss_weighted,
+                            "landmark": landmark_loss_weighted,
+                            "prior": prior_loss_weighted,
+                            "beta": beta_loss_weighted,
+                            "total": loss,
+                            "volume": current_volume})
+            
+        else:
+            loss_tracker.update({"data": data_loss_weighted,
                             "landmark": landmark_loss_weighted,
                             "prior": prior_loss_weighted,
                             "beta": beta_loss_weighted,
