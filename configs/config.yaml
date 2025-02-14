@@ -46,8 +46,8 @@ general:
   experiment_name: "Fitting" 
 
 paths:
-  body_models_path: data/body_models
-  prior_path: data/prior
+  body_models_path: SMPL-Fitting/data/body_models
+  prior_path: SMPL-Fitting/data/prior
   save_path: results
 
 
