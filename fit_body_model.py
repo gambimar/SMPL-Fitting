@@ -259,9 +259,6 @@ def fit_body_model_onto_dataset(cfg: dict):
 
 
 def fit_body_model_onto_scan(cfg: dict):
-    
-    wait_after_fit_func = input if cfg["pause_script_after_fitting"] else print
-
     scan_name = cfg["scan_path"].split("/")[-1].split(".")[0]
     scan_vertices, scan_faces = load_scan(cfg["scan_path"])
     scan_vertices = scan_vertices / cfg["scale_scan"]
@@ -283,8 +280,6 @@ def fit_body_model_onto_scan(cfg: dict):
         input_example["scan_index"] = 0
         fit_body_model(input_example, cfg)
    
-        print(f"Fitting completed - press any key to continue!")
-        wait_after_fit_func("-----------------------------------")
 
 
 if __name__ == "__main__":

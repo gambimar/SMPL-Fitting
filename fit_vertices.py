@@ -237,12 +237,6 @@ def fit_vertices_onto_dataset(cfg: dict):
 
 
 def fit_vertices_onto_scan(cfg: dict):
-
-    wait_after_fit_func = input if cfg["pause_script_after_fitting"] else print
-    wait_after_fit_func_text = "Fitting completed - press any key to continue!" \
-                        if cfg["pause_script_after_fitting"] else "Fitting completed!"
-
-
     scan_verts, scan_faces = load_scan(cfg["scan_path"])
     scan_landmarks = load_landmarks(cfg["landmark_path"])
     
@@ -253,9 +247,6 @@ def fit_vertices_onto_scan(cfg: dict):
     input_dict["scan_index"] = 0
 
     fit_vertices(input_dict, cfg)
-
-    print(wait_after_fit_func_text)
-    wait_after_fit_func("-----------------------------------")
 
 
 if __name__ == "__main__":
