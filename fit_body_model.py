@@ -235,10 +235,6 @@ def fit_body_model_onto_dataset(cfg: dict):
     cfg_dataset["use_landmarks"] = cfg["use_landmarks"]
     dataset = eval(cfg["dataset_name"])(**cfg_dataset)
 
-    wait_after_fit_func = input if cfg["pause_script_after_fitting"] else print
-    wait_after_fit_func_text = "Fitting completed - press any key to continue!" \
-                        if cfg["pause_script_after_fitting"] else "Fitting completed!"
-
     # if continuing fitting process, get fitted and skipped scans
     fitted_scans = get_already_fitted_scan_names(cfg)
     skipped_scans = get_skipped_scan_names(cfg)
@@ -259,8 +255,6 @@ def fit_body_model_onto_dataset(cfg: dict):
         else:
             skipped_scans.append(input_example["name"])
             to_txt(skipped_scans, cfg["save_path"], "skipped_scans.txt")
-        print(wait_after_fit_func_text)
-        wait_after_fit_func("-----------------------------------")
     print(f"Fitting for {dataset_name} dataset completed!")
 
 
