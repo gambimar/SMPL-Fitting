@@ -728,10 +728,10 @@ def load_scan(scan_path, return_vertex_colors=False):
     if ext in ["ply", "obj"]:
         if ext == "obj":
             import pandas as pd
+            print(scan_path)
             mesh = pd.read_csv(scan_path, sep=' ', header=None, comment='#')
             mesh = mesh[mesh[0] == 'v']
             scan_vertices = mesh.iloc[:, 1:].values.astype(np.float32)
-            print(scan_vertices.shape)
             return scan_vertices, None
         scan = o3d.io.read_triangle_mesh(scan_path)
         scan_vertices = np.asarray(scan.vertices)

@@ -184,9 +184,11 @@ def fit_body_model(input_dict: dict, cfg: dict):
         body_optimizer.step()
 
         if i >= START_LR_DECAY:
+            if (i - START_LR_DECAY)%10:
+                LR = LR*0.5 
             for param_group in body_optimizer.param_groups:
                 param_group['lr'] = LR*(ITERATIONS-i)/ITERATIONS
-            if VERBOSE: print(colored(f"\tlr: {param_group['lr']}","yellow"))
+            if VERBOSE: print((f"\tlr: {param_group['lr']}","yellow"))
 
         if VISUALIZE and (i in VISUALIZE_STEPS):
             new_title = f"Fitting {input_name} - iteration {i}"

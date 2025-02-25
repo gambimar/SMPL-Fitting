@@ -305,6 +305,13 @@ class MaxMixturePrior(nn.Module):
         return mean_pose
 
     def merged_log_likelihood(self, pose, betas):
+        if pose.shape[1] != 69:
+            # 69 is the number of pose parameters in SMPL
+            # Cat zeros to the end of the pose tensor
+            zeros = torch.zeros(pose.shape[0], 69 - pose.shape[1],
+                                device=pose.device, dtype=pose.dtype)
+            pose = torch.cat([pose, zeros], dim=1)
+
         diff_from_mean = pose.unsqueeze(dim=1) - self.means
 
         prec_diff_prod = torch.einsum('mij,bmj->bmi',

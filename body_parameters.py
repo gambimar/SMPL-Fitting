@@ -61,10 +61,29 @@ class OptimizationSMPL(torch.nn.Module):
     def forward(self):
         return self.pose, self.beta, self.trans, self.scale
     
+class OptimizationSKEL(OptimizationSMPL):
+    """
+    Class used to optimize SMPL parameters. Different pose parameters than SMPL
+    """
+    def __init__(self, cfg: dict):
+        super(OptimizationSKEL, self).__init__(cfg)
+        pose = torch.zeros(1, 46).to(DEVICE)
+
+        if "init_params" in cfg:
+            init_params = cfg["init_params"]
+            if "pose" in init_params:
+                pose = cfg["init_params"]["pose"].to(DEVICE)
+
+        if "refine_params" in cfg:
+            params_to_refine = cfg["refine_params"]
+            if "pose" in params_to_refine:
+                self.pose = torch.nn.Parameter(pose)
+        else:
+            self.pose = torch.nn.Parameter(pose)
+
 
 
 class BodyParameters():
-
     def __new__(cls, cfg):
 
         possible_model_types = ["smpl"] #["smpl", "smplx"]
@@ -72,7 +91,8 @@ class BodyParameters():
 
         if model_type == "smpl":
             return OptimizationSMPL(cfg)
-        # elif model_type == "smplx":
+        elif model_type == "skel":
+            return OptimizationSKEL(cfg)
         #     return OptimizationSMPLX()
         else:
             msg = f"Model type {model_type} not defined. \

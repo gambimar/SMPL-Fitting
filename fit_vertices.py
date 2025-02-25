@@ -96,7 +96,7 @@ def fit_vertices(input_dict: dict, cfg: dict):
     ignore_verts = []
     if ignore_segments or type(ignore_segments) is list:
         import json
-        with open("smpl_vert_segmentation.json", 'r') as f:
+        with open("SMPL-Fitting/smpl_vert_segmentation.json", 'r') as f:
             vert_segmentation = json.load(f)
         for key in ignore_segments:
             ignore_verts.extend(vert_segmentation[key])

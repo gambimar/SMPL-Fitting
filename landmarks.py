@@ -107,7 +107,7 @@ SMPL_INDEX_LANDMARKS = {'10th Rib Midspine': 3024,
                         'Lt. Acromion': 1862, 
                         'Lt. Axilla, Ant.': 1871, 
                         'Lt. Axilla, Post.': 2991, 
-                        'Lt. Calcaneous, Post.': 3387,
+                        'Lt. Calcaneous Post.': 3387,
                         'Lt. Clavicale': 1300,
                         'Lt. Dactylion': 2446,
                         'Lt. Digit II': 3222,
@@ -140,7 +140,7 @@ SMPL_INDEX_LANDMARKS = {'10th Rib Midspine': 3024,
                         'Rt. Acromion': 5342,
                         'Rt. Axilla, Ant.': 5332,
                         'Rt. Axilla, Post.': 6450,
-                        'Rt. Calcaneous, Post.': 6786,
+                        'Rt. Calcaneous Post.': 6786,
                         'Rt. Clavicale': 4782,
                         'Rt. Dactylion': 5907,
                         'Rt. Digit II': 6620,
@@ -172,6 +172,8 @@ SMPL_INDEX_LANDMARKS = {'10th Rib Midspine': 3024,
                         'Supramenton': 3051,
                         'Suprasternale': 3171,
                         'Waist, Preferred, Post.': 3021}
+
+SKEL_INDEX_LANDMARKS = SMPL_INDEX_LANDMARKS
 
 def process_caesar_landmarks(landmark_path: str, scale: float = 1000.0):
     """
