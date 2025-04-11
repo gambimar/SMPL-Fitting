@@ -759,7 +759,16 @@ def load_scan(scan_path, return_vertex_colors=False):
             if return_vertex_colors:
                 scan_vertex_colors = np.asarray(scan.vertex_colors)
             os.remove(temp_ply_path)
-
+    elif ext == 'stl':
+        mesh = trimesh.load(scan_path)
+        scan_vertices = mesh.vertices
+        scan_faces = mesh.faces[0] #Don't keep them in ram, they are not used
+        # Select a fraction of the vertices
+        fraction_size = max(1, int(len(scan_vertices) * 0.011))  # Ensures at least 1 element is selected
+        random_indices = np.random.choice(len(scan_vertices), fraction_size, replace=False)
+        scan_vertices = scan_vertices[random_indices]
+        scan_vertices[:, [1,2]] = scan_vertices[:, [2,1]]  # Swap y and z axis
+        scan_vertices[:, 2] *= -1  # Invert z axis
     else:
         supported_extensions_str = ', '.join(supported_extensions)
         msg = f"Scan extensions supported: {supported_extensions_str}. Got .{ext}."

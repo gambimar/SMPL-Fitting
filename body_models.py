@@ -140,11 +140,11 @@ class SKELBodyModel(SMPLBodyModel):
     def joints(self):
         return self.body_model(poses=self.current_pose, 
                                betas=self.current_shape, 
-                               trans=torch.zeros(1,3)).joints[0]
+                               trans=torch.zeros(1,3)("cuda" if torch.cuda.is_available() else "cpu")).joints[0]
 
     @property
     def faces(self):
-        return self.body_model.faces
+        return self.body_model.skin_f
     
     def landmark_indices(self,landmarks_order):
         return [self.all_landmark_indices[k] for k in landmarks_order]
@@ -174,7 +174,7 @@ class SKELBodyModel(SMPLBodyModel):
         self.current_scale = scale
         deformed_verts = self.body_model(poses=pose,
                                          betas=betas, 
-                                         trans=torch.zeros(1,3)).skin_verts[0]
+                                         trans=torch.zeros(1,3).to("cuda" if torch.cuda.is_available() else "cpu")).skin_verts[0]
 
         # return (deformed_verts + trans) * scale
         return (deformed_verts * scale) + trans

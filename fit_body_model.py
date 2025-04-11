@@ -6,7 +6,7 @@ import os
 import argparse
 
 
-from losses import ChamferDistance, MaxMixturePrior, summed_L2, LossTracker
+from losses import ChamferDistance, MaxMixturePrior, summed_L2, LossTracker, SMPL_to_SKEL_vert_distance
 from visualization import viz_error_curves, viz_iteration, set_init_plot, viz_final_fit
 from utils import (check_scan_prequisites_fit_bm, cleanup, 
                    load_config, save_configs,
@@ -22,6 +22,7 @@ from utils import (check_scan_prequisites_fit_bm, cleanup,
 from body_models import BodyModel
 from body_parameters import BodyParameters
 from datasets import FAUST, CAESAR
+
 #from dash_app import run_dash_app_as_subprocess
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -70,6 +71,7 @@ def fit_body_model(input_dict: dict, cfg: dict):
 
     # setup body model
     body_model = BodyModel(cfg)
+    
     if torch.cuda.is_available():
         body_model.cuda()
     body_model_params = BodyParameters(cfg).to(DEVICE)
@@ -87,8 +89,14 @@ def fit_body_model(input_dict: dict, cfg: dict):
     
     body_optimizer = torch.optim.Adam(body_model_params.parameters(), lr=LR)
     chamfer_distance = ChamferDistance()
-    prior = MaxMixturePrior(prior_folder=cfg["prior_path"], num_gaussians=8)
-    prior = prior.to(DEVICE)
+    if cfg['body_model'] == 'smpl': # The prior is meaningless for SMPL
+        prior = MaxMixturePrior(prior_folder=cfg["prior_path"], num_gaussians=8)
+        prior = prior.to(DEVICE)
+    if cfg['body_model'] == 'skel': # We need a reference scan to align the SKEL model
+        reference_smpl_vertices, _ = load_scan(cfg["reference_smpl"])
+        reference_smpl_vertices = torch.from_numpy(reference_smpl_vertices).type(DEFAULT_DTYPE).unsqueeze(0).to(DEVICE)
+        prior = SMPL_to_SKEL_vert_distance(reference_smpl_vertices)
+        prior = prior.to(DEVICE)
 
     # Ignore vertices that are not part of the body scan
     ignore_segments = cfg["ignore_segments"]
@@ -137,18 +145,26 @@ def fit_body_model(input_dict: dict, cfg: dict):
         # forward
         pose, beta, trans, scale = body_model_params.forward()
         if VERBOSE: print_params(pose,beta,trans,scale)
-        body_model_verts = body_model.deform_verts(pose,
-                                                   beta,
-                                                   trans,
-                                                   scale)
+
+        body_model_verts = body_model.deform_verts(pose.to(DEVICE),
+                                                   beta.to(DEVICE),
+                                                   trans.to(DEVICE),
+                                                   scale.to(DEVICE))
 
         # compute losses
         dist1, dist2, _ , _ = chamfer_distance(body_model_verts[mask].unsqueeze(0), input_vertices)
         data_loss = (torch.mean(dist1)) + (torch.mean(dist2))
         data_loss_weighted = data_loss_weight * data_loss
-        landmark_loss = summed_L2(body_model_verts[body_model_landmark_inds,:], input_landmarks)
-        landmark_loss_weighted = landmark_loss_weight * landmark_loss
-        prior_loss = prior.forward(pose[:, 3:], beta)
+        if len(body_model_landmark_inds) > 0:
+            landmark_loss = summed_L2(body_model_verts[body_model_landmark_inds,:], input_landmarks)
+            landmark_loss_weighted = landmark_loss_weight * landmark_loss
+        else:
+            landmark_loss = torch.tensor(0.0).to(DEVICE)
+            landmark_loss_weighted = torch.tensor(0.0).to(DEVICE)
+        if cfg['body_model'] != 'skel':
+            prior_loss = prior.forward(pose[:, 3:], beta)
+        else:
+            prior_loss = prior.forward(body_model_verts)
         prior_loss_weighted = prior_loss_weight * prior_loss
         beta_loss = (beta**2).mean()
         beta_loss_weighted = beta_loss_weight * beta_loss
@@ -199,6 +215,51 @@ def fit_body_model(input_dict: dict, cfg: dict):
             fig_losses = viz_error_curves(loss_tracker.losses, loss_weights, 
                                           new_title, VISUALIZE_LOGSCALE)
             send_to_socket(fig_losses, socket, SOCKET_TYPE)
+
+        DEBUG = False
+        if DEBUG:
+            import trimesh
+            import matplotlib
+            matplotlib.use("TkAgg")
+            trimesh = trimesh.Trimesh(vertices=body_model_verts.detach().cpu().numpy(), faces=np.array(body_model.faces))
+            # Make results directory
+            os.makedirs(f"results/tmp", exist_ok=True)
+            trimesh.export(f"results/tmp/{input_name}_iter_{i}.obj")
+            # Create a plt plot that is dynamically updated
+            import matplotlib.pyplot as plt
+            plt.ion()
+            if i==0:
+                fig, ax = plt.subplots()
+
+                line1, = ax.plot([], [], 'r-', label = 'Data Loss')
+                line2, = ax.plot([], [], 'g-', label = 'Landmark Loss')
+                line3, = ax.plot([], [], 'b-', label = 'Prior Loss')
+                line4, = ax.plot([], [], 'y-', label = 'Beta Loss')
+
+                ax.legend()
+            # y axis log scale
+            ax.set_yscale('log')
+            ax.set_xlim(0, i)
+            
+            line1.set_xdata(range(i+1))
+            line1.set_ydata(loss_tracker.losses['data'])
+            line2.set_xdata(range(i+1))
+            line2.set_ydata(loss_tracker.losses['landmark'])
+            line3.set_xdata(range(i+1))
+            line3.set_ydata(loss_tracker.losses['prior'])
+            line4.set_xdata(range(i+1))
+            line4.set_ydata(loss_tracker.losses['beta'])
+                # Optionally, adjust the axes limits
+            ax.relim()           # Recalculate limits based on new data
+            ax.autoscale_view()  # Autoscale
+
+            # Draw the updated figure
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+
+    if DEBUG:
+        plt.ioff()
+        plt.show()
 
 
     if VISUALIZE:

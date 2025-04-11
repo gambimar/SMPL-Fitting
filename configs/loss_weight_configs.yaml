@@ -1,13 +1,12 @@
 
 
 fit_bm_loss_weight_strategy:
-  
     default_option: {0: {"data": 0.02,
                         "landmark": 5,
                         "prior": 0.001,
                         "beta": 0.01},
 
-                    30: {"data": 0.02,
+                    50: {"data": 0.02,
                         "landmark": 2.5,
                         "prior": 0.1,
                         "beta": 0.01},
@@ -15,19 +14,100 @@ fit_bm_loss_weight_strategy:
                     100: {"data": 0.2,
                         "landmark": 1.5,
                         "prior": 0.1,
-                        "beta": 2},
+                        "beta": 0.5},
 
                     # fit shape
-                    200: {"data": 1,
+                    133: {"data": 10,
                         "landmark": 0.5,
                         "prior": 0.1,
-                        "beta": 3},
+                        "beta": 0.3},
 
-                    300: {"data": 1000,
+                    167: {"data": 100,
+                        "landmark": 0.5,
+                        "prior": 0.1,
+                        "beta": 0.1},
+
+                    200: {"data": 300,
+                        "landmark": 0.5,
+                        "prior": 0.1,
+                        "beta": 0.01},
+
+                    250: {"data": 400,
                         "landmark": 0.25,
                         "prior": 0.1,
-                        "beta": 3}
+                        "beta": 0.003},
+
+                    300: {"data": 600,
+                        "landmark": 0.25,
+                        "prior": 0.03,
+                        "beta": 0.0015},
+
+                    350: {"data": 800,
+                        "landmark": 0.25,
+                        "prior": 0.015,
+                        "beta": 0.00125},
+
+                    400: {"data": 1000,
+                        "landmark": 0.25,
+                        "prior": 0.01,
+                        "beta": 0.001},
                 }
+            
+    scaneca: {0: {"data": 0.02,
+                        "landmark": 5,
+                        "prior": 0.001,
+                        "beta": 0.01},
+
+                    50: {"data": 0.02,
+                        "landmark": 2.5,
+                        "prior": 0.1,
+                        "beta": 0.01},
+
+                    100: {"data": 0.2,
+                        "landmark": 1.5,
+                        "prior": 0.1,
+                        "beta": 0.5},
+
+                    # fit shape
+                    133: {"data": 10,
+                        "landmark": 0.5,
+                        "prior": 0.1,
+                        "beta": 0.3},
+
+                    167: {"data": 100,
+                        "landmark": 0.5,
+                        "prior": 0.1,
+                        "beta": 0.1},
+
+                    200: {"data": 300,
+                        "landmark": 0.25,
+                        "prior": 0.1,
+                        "beta": 0.01},
+
+                    250: {"data": 400,
+                        "landmark": 0.1,
+                        "prior": 0.1,
+                        "beta": 0.003},
+
+                    300: {"data": 600,
+                        "landmark": 0.05,
+                        "prior": 0.03,
+                        "beta": 0.0015},
+
+                    350: {"data": 800,
+                        "landmark": 0.0,
+                        "prior": 0.015,
+                        "beta": 0.00125},
+
+                    400: {"data": 1000,
+                        "landmark": 0.0,
+                        "prior": 0.01,
+                        "beta": 0.001},
+                }
+    skel: {0: {"data": 0.02,
+                        "landmark": 0,
+                        "prior": 1,
+                        "beta": 0.01},}
 
     fourDhumanoutfit: {0: {"data": 5,
                   "prior": 2.5,
@@ -51,14 +131,16 @@ fit_verts_loss_weight_strategy:
                 
       default_option: {
             0: {"data": 150,
-                "smooth": 300,
-                "landmark": 100,
-                "normal": 150,
-                "interpenetration": 0},
+                "smooth": 30,
+                "landmark": 0,
+                "normal": 15,
+                "interpenetration": 0,
+                "neighbordistance": 0},
 
             100: {"data": 150,
-                "smooth": 150,
-                "landmark": 100,
-                "normal": 150,
-                "interpenetration": 0}
+                "smooth": 15,
+                "landmark": 0,
+                "normal": 15,
+                "interpenetration": 0,
+                "neighbordistance": 0},
             }

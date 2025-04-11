@@ -6,6 +6,7 @@ import numpy as np
 import os
 import pickle
 from typing import List
+from utils import rotate_points_homo
 
 import sys
 script_path = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +25,7 @@ LOSS_MAPPER = {"data":"DataLoss",
                "smooth":"SmoothnessLoss",
                "landmark":"LandmarkLoss",
                "normal":"NormalLoss",
+               "neighbordistance":"NeighborDistanceLoss",
                }
 
 class DataLoss(nn.Module):
@@ -103,7 +105,6 @@ class LandmarkLoss(nn.Module):
         return: (float) summed L2 norm between scan_landmarks and 
                         template_landmarks
         """
-
         return torch.sum((scan_landmarks - template_landmarks)**2)
     
 
@@ -159,6 +160,35 @@ class NormalLoss(nn.Module):
 
         return dist_template2scan[inds].sum()
     
+class NeighborDistanceLoss(nn.Module):
+    def __init__(self, body_models_path, **kwargs):
+        super(NeighborDistanceLoss, self).__init__()
+        neighbor_pairs_path = os.path.join(body_models_path,
+                                           "neighbor_pairs_indices.npy")
+        all_neighbors = np.load(neighbor_pairs_path)
+        self.all_neighbors = torch.from_numpy(all_neighbors).type(torch.long)
+        self.init_distance = False
+
+    def forward(self, template_vertices, **kwargs):
+        """
+        Compute the distance between the two vertices in the template and the
+        scan. The distance is computed as the sum of the squared differences
+        between the two vertices in the template and the scan.
+            :param scan_vertices: (torch.tensor) dim N x 3
+            :param template_vertices: (torch.tensor) dim N x 3
+            :return: (float) sum of squared differences between the two vertices
+        """
+        if not self.init_distance:
+            self.init_distance = True
+            sc2 = template_vertices.detach().clone()    
+            self.neighbor_distance_0 = torch.linalg.norm(sc2[:,self.all_neighbors[:, 0]] - sc2[:,self.all_neighbors[:, 1]],
+                                                       dim=-1)
+
+        # Compute the distance between the two vertices
+        #template_vertices = rotate_points_homo(template_vertices.squeeze(), A)
+        neighbor_distance_ = torch.linalg.norm(template_vertices[:,self.all_neighbors[:, 0]] - template_vertices[:,self.all_neighbors[:, 1]],
+                                                       dim=-1)
+        return torch.sum((neighbor_distance_ - self.neighbor_distance_0) ** 2)
 
 class Losses(nn.Module):
     """
@@ -362,3 +392,15 @@ class MaxMixturePrior(nn.Module):
             return self.merged_log_likelihood(pose, betas)
         else:
             return self.log_likelihood(pose, betas)
+        
+class SMPL_to_SKEL_vert_distance(nn.Module):
+    def __init__(self, reference_smpl_vertices):
+        super(SMPL_to_SKEL_vert_distance, self).__init__()
+        self.smpl_verts = reference_smpl_vertices
+
+    def forward(self, skel_verts):
+        """
+        :param smpl_verts: (torch.tensor) dim N x 3
+        :param skel_verts: (torch.tensor) dim N x 3
+        """
+        return summed_L2(self.smpl_verts, skel_verts)

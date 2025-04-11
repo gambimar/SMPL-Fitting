@@ -3,7 +3,7 @@
 fit_body_model_optimization:
   loss_weight_option: default_option # check options in loss_weight_configs.yaml
   iterations: 500
-  lr: 0.1
+  lr: 0.08
   start_lr_decay_iteration:  450
   body_model: smpl
   use_landmarks: ["Sellion", "Suprasternale"] #SMPL_INDEX_LANDMARKS # either "All", name of dict from landmarks.py or list of landmark names ["Lt. 10th Rib", "Lt. Dactylion",..]
